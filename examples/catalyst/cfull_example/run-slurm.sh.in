@@ -1,0 +1,10 @@
+#!/bin/bash 
+#SBATCH --partition bdw_usr_dbg 
+#SBATCH --time=20:00 
+#SBATCH --account=cin_staff 
+#SBATCH --job-name=run-catalyst-example-slurm 
+#SBATCH --output=run-catalyst-example.joblog 
+#SBATCH -N 1 -n 2 --mem=8GB 
+
+cd $SLURM_SUBMIT_DIR
+mpirun -np 2 ./CFullExample @CMAKE_CURRENT_SOURCE_DIR@/scripts/feslicescript.py
