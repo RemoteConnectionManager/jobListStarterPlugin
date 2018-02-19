@@ -99,13 +99,14 @@ void pqJobListStarter::onConnect(pqServer* displaySession)
 
     QFile inputFile(m_filename);
     QDir dir;
-    if(!dir.exists(path)) {
+    if(!dir.exists(path))
+    {
         dir.mkpath(path);
-        if (inputFile.open(QIODevice::WriteOnly))
-        {
-            QTextStream out(&inputFile);
-            out << host << ":" << port;
-        }
+    }
+    if (inputFile.open(QIODevice::WriteOnly))
+    {
+        QTextStream out(&inputFile);
+        out << host << ":" << port;
     }
 
     delete prog_dlg;
