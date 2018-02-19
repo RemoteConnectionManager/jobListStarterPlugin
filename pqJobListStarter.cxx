@@ -2,6 +2,9 @@
 #include <QProcess>
 #include <QPointer>
 #include <QtDebug>
+#include <QProgressDialog>
+#include <QApplication>
+#include <QDesktopWidget>
 
 // Server Manager Includes.
 #include "pqLiveInsituVisualizationManager.h"
@@ -29,6 +32,14 @@
 
 
 //-----------------------------------------------------------------------------
+void centerWidget(QWidget *widget) {
+    QRect screenGeometry = QApplication::desktop()->screenGeometry(0);
+    int x = (screenGeometry.width() - widget->width()) / 2;
+    int y = (screenGeometry.height() - widget->height()) / 2;
+    widget->move(x, y);
+}
+
+//-----------------------------------------------------------------------------
 pqJobListStarter::pqJobListStarter(QObject* p /*=0*/)
   : QObject(p)
 {
@@ -46,6 +57,32 @@ pqJobListStarter::~pqJobListStarter()
 //-----------------------------------------------------------------------------
 void pqJobListStarter::onConnect(pqServer* displaySession)
 {
+
+    QProgressDialog *prog_dlg = new QProgressDialog("Querying the scheduler...", "Cancel", 0, 0);
+    prog_dlg->setModal(Qt::WindowModal);
+    prog_dlg->setWindowFlags(Qt::WindowStaysOnTopHint);
+    centerWidget(prog_dlg);
+
+    QProcess* process = new QProcess();
+    QString cmd = QString("squeue --user=%1").arg(getenv("USER"));
+
+    connect(process, SIGNAL(finished(int)), prog_dlg, SLOT(close()));
+
+    process->start(cmd);
+    prog_dlg->exec();
+
+    QByteArray out = process->readAllStandardOutput();
+    QString out_str(out);
+    QStringList out_str_list = out_str.split(QRegExp("\\s+"), QString::SkipEmptyParts);
+
+    jobListDialog *dialog = new jobListDialog();
+    dialog->setItems(&out_str_list);
+    dialog->setWindowFlags(Qt::WindowStaysOnTopHint);
+    centerWidget(dialog);
+    dialog->exec();
+
+    m_job_id = dialog->getJobSelectedId();
+
     QString host = getenv("HOSTNAME");
 
     pqLiveInsituManager* insitu_manager = pqLiveInsituManager::instance();
@@ -67,36 +104,19 @@ void pqJobListStarter::onConnect(pqServer* displaySession)
         if (inputFile.open(QIODevice::WriteOnly))
         {
             QTextStream out(&inputFile);
-            out << "host = "<< host << "\n" << "port = " << port;
+            out << host << ":" << port;
         }
     }
+
+    delete prog_dlg;
+    delete process;
+    delete dialog;
 }
 
 //-----------------------------------------------------------------------------
 void pqJobListStarter::onStartup()
 {
     qWarning() << "pqJobListStarter Started";
-    qWarning() << "Querying the SLURM scheduler ...";
-
-    QProcess process;
-    QString cmd = QString("squeue --user=%1").arg(getenv("USER"));
-    process.start(cmd);
-
-    if (!process.waitForFinished())
-    {
-        qWarning("Error: failed to get the job list.");
-        return;
-    }
-
-    QByteArray out = process.readAllStandardOutput();
-    QString out_str(out);
-    QStringList out_str_list = out_str.split(QRegExp("\\s+"), QString::SkipEmptyParts);
-
-    jobListDialog dialog;
-    dialog.setItems(&out_str_list);
-    dialog.exec();
-
-    m_job_id = dialog.getJobSelectedId();
 }
 
 //-----------------------------------------------------------------------------
